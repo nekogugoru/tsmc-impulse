@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>2330 衝動轉換器</title>
 <meta name="description" content="想買東西前，先換算成台積電股數與 10 年後價值。">
-<meta name="theme-color" content="#1f3d7a">
+<meta name="theme-color" content="#f3f4f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f131b" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -498,10 +499,23 @@ footer a { color: var(--accent); }
   render();
 
   // ---- 讀取最新收盤價（GitHub Actions 每個交易日收盤後更新 data/2330.json）----
+  // 網址參數：?amount=8990&item=耳機&do=resist|spend（從捷徑或其他地方帶入）、?focus=1（開啟就準備輸入）
+  const params = new URLSearchParams(location.search);
+  if (params.get('amount')) $('price').value = num(params.get('amount'));
+  if (params.get('item')) $('item').value = params.get('item').slice(0, 60);
+  if (params.has('amount') || params.has('item')) render();
+  function applyAction() {
+    const act = params.get('do');
+    if ((act === 'resist' || act === 'spend') && num($('price').value) > 0) record(act);
+    if (location.search) history.replaceState(null, '', location.pathname);
+  }
+  if (!params.get('do')) { try { $('price').focus({ preventScroll: true }); $('price').select(); } catch (e) {} }
+
   fetch('data/2330.json?t=' + Date.now(), { cache: 'no-store' })
     .then(r => r.ok ? r.json() : Promise.reject())
     .then(d => { if (d && d.close > 0) { quote = { close: d.close, date: d.date }; save(KEY_QUOTE, quote); renderQuote(); render(); } })
-    .catch(() => { $('spPill').textContent = `${quote.date} 收盤（離線）`; });
+    .catch(() => { $('spPill').textContent = `${quote.date} 收盤（離線）`; })
+    .finally(applyAction);
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

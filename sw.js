@@ -1,5 +1,5 @@
 // 離線快取：App 本體先用快取；股價檔一律先抓網路，失敗才用快取
-const CACHE = 'tsmc-impulse-v1';
+const CACHE = 'tsmc-impulse-v2';
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
