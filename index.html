@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>2330 衝動轉換器</title>
+<meta name="description" content="想買東西前，先換算成台積電股數與 10 年後價值。">
+<meta name="theme-color" content="#1f3d7a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="2330轉換器">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<style>
+/* Layout: one narrow column, like a broker's order ticket — input, the "receipt", then the 忍住清單 ledger */
+:root {
+  --bg: #f3f4f7;
+  --paper: #ffffff;
+  --ink: #18202e;
+  --muted: #5f6878;
+  --line: #dde1e8;
+  --up: #d1253a;      /* 台股：紅漲 */
+  --up-soft: #fbe8ea;
+  --down: #12865a;    /* 台股：綠跌 */
+  --down-soft: #e3f4ec;
+  --accent: #1f3d7a;
+  --accent-soft: #e6ecf7;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f131b; --paper: #171d28; --ink: #e8ebf1; --muted: #98a1b2; --line: #2a3242;
+  --up: #ff5a6a; --up-soft: #3a1c22; --down: #3cc98c; --down-soft: #15322a; --accent: #8fb0f0; --accent-soft: #1d2a44; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f131b; --paper: #171d28; --ink: #e8ebf1; --muted: #98a1b2; --line: #2a3242;
+  --up: #ff5a6a; --up-soft: #3a1c22; --down: #3cc98c; --down-soft: #15322a; --accent: #8fb0f0; --accent-soft: #1d2a44; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 600px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px; }
+header { display: grid; gap: 4px; }
+.ticker { font-family: var(--font-num); font-size: 12px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+h1 { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: .02em; text-wrap: balance; }
+h2 { margin: 0; font-size: 18px; font-weight: 900; letter-spacing: .02em; }
+.lede { margin: 0; color: var(--muted); }
+
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.wrap > * { min-width: 0; }
+.money input { width: 100%; }
+label, .lbl { font-size: 13px; color: var(--muted); font-weight: 500; letter-spacing: .04em; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.two { display: grid; grid-template-columns: 1fr 170px; gap: 12px; }
+@media (max-width: 460px) { .two { grid-template-columns: 1fr; } }
+.money { display: flex; align-items: center; gap: 8px; border: 2px solid var(--line); border-radius: 10px; padding: 6px 12px; background: var(--bg); }
+.money:focus-within { border-color: var(--accent); }
+.money span { font-family: var(--font-num); color: var(--muted); font-size: 14px; }
+.money input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font-family: var(--font-num); font-size: 30px; font-weight: 600; padding: 4px 0; outline: none; font-variant-numeric: tabular-nums; }
+input[type=text], input[type=date] { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: var(--bg); color: var(--ink); font: inherit; width: 100%; min-width: 0; }
+input[type=text]:focus, input[type=date]:focus, .small-money input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.quote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.small-money { display: flex; align-items: center; gap: 6px; }
+.small-money input { width: 110px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: var(--bg); color: var(--ink); font-family: var(--font-num); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pill { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.pill.manual { background: var(--up-soft); color: var(--up); }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 1px solid currentColor; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.chip b { font-family: var(--font-num); font-weight: 600; }
+.chip[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+.chip:focus-visible, .btn:focus-visible, .linkbtn:focus-visible, .del:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.custom { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.custom input { width: 64px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: var(--bg); color: var(--ink); font-family: var(--font-num); text-align: right; }
+
+/* receipt */
+.receipt { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.r-head { padding: 14px 18px; background: var(--accent-soft); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.r-head strong { color: var(--ink); font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.r-body { padding: 18px; display: grid; gap: 16px; }
+.big { display: grid; gap: 2px; }
+.big .k { font-size: 13px; color: var(--muted); }
+.big .v { font-family: var(--font-num); font-size: 40px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.big .v small { font-family: var(--font-body); font-size: 16px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.big .sub { font-size: 13px; color: var(--muted); }
+.future { background: var(--up-soft); border-radius: 10px; padding: 14px; }
+.future .v { color: var(--up); }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-family: var(--font-num); font-size: 11px; }
+.verdict { margin: 0; font-weight: 700; font-size: 16px; text-wrap: balance; }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px dashed var(--line); padding-top: 14px; }
+.btn { border-radius: 10px; padding: 12px 10px; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; border: 2px solid transparent; }
+.btn.resist { background: var(--up); color: var(--paper); }
+.btn.spend { background: var(--bg); color: var(--ink); border-color: var(--line); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.toast { font-size: 13px; color: var(--muted); margin: 0; min-height: 1.2em; }
+
+/* ledger */
+.ledger { display: grid; gap: 14px; }
+.ledger-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ledger-head span { font-size: 12px; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 460px) { .tiles { grid-template-columns: 1fr; } }
+.tile { border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.tile.resist { background: var(--up-soft); }
+.tile.spend { background: var(--down-soft); }
+.tile .t { font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+.tile .t span { font-weight: 500; color: var(--muted); font-size: 13px; }
+.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.kv b { font-family: var(--font-num); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.tile.resist .hl { color: var(--up); }
+.tile.spend .hl { color: var(--down); }
+
+.goal { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; }
+.goal-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.goal-head .t { font-weight: 700; font-size: 15px; }
+.goal-in span { font-family: var(--font-num); color: var(--muted); font-size: 13px; }
+.goal-in input { width: 140px; }
+.goal .hl { color: var(--accent); }
+.bar { position: relative; height: 12px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 999px; }
+#barFv { background: var(--up-soft); outline: 1px solid var(--up); outline-offset: -1px; }
+#barNow { background: var(--up); z-index: 1; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend b { font-family: var(--font-num); color: var(--ink); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.sw.now { background: var(--up); }
+.sw.fv { background: var(--up-soft); border: 1px solid var(--up); }
+.goal-msg { margin: 0; font-size: 13px; color: var(--muted); }
+.list { display: grid; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.entry { display: grid; grid-template-columns: 84px 1fr auto; gap: 4px 12px; padding: 12px 14px; border-top: 1px solid var(--line); align-items: start; }
+.entry:first-child { border-top: 0; }
+.entry .d { font-family: var(--font-num); font-size: 12px; color: var(--muted); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.entry .main { min-width: 0; display: grid; gap: 2px; }
+.entry .name { font-weight: 700; overflow-wrap: anywhere; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tag { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; letter-spacing: .05em; }
+.tag.resist { background: var(--up-soft); color: var(--up); }
+.tag.spend { background: var(--down-soft); color: var(--down); }
+.entry .meta { font-size: 12px; color: var(--muted); }
+.entry .res { font-size: 13px; }
+.entry .res b { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.entry .res .up { color: var(--up); }
+.entry .res .down { color: var(--down); }
+.entry .amt { font-family: var(--font-num); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.del { background: none; border: 0; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; padding: 2px 0; text-align: right; display: block; margin-left: auto; }
+.del.armed { color: var(--up); font-weight: 700; }
+.empty { padding: 22px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+@media (max-width: 420px) { .big .v { font-size: 32px; } h1 { font-size: 24px; } .entry { grid-template-columns: 1fr auto; } .entry .d { grid-column: 1 / -1; padding: 0; } }
+
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+
+.backup { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.backup .btn { padding: 9px 14px; font-size: 14px; font-weight: 500; background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+.backup p { margin: 0; flex-basis: 100%; font-size: 12px; color: var(--muted); }
+footer { font-size: 12px; color: var(--muted); }
+footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ticker">TWSE · 2330 · 台積電</div>
+    <h1>想買之前，先換成台積電</h1>
+    <p class="lede">輸入想買的東西價格，看看這筆錢能買幾股，放 10 年會變多少。忍住了就記一筆。</p>
+  </header>
+
+  <section class="card" aria-label="輸入">
+    <div class="two">
+      <div class="field">
+        <label for="item">想買什麼</label>
+        <input type="text" id="item" placeholder="例如：新耳機" value="新耳機">
+      </div>
+      <div class="field">
+        <label for="date">日期</label>
+        <input type="date" id="date">
+      </div>
+    </div>
+    <div class="field">
+      <label for="price">價格</label>
+      <div class="money"><span>NT$</span><input id="price" inputmode="decimal" value="8990" aria-label="價格（新台幣）"></div>
+    </div>
+    <div class="quote">
+      <div class="small-money">
+        <label for="sp">2330 股價</label>
+        <input id="sp" inputmode="decimal" value="2490">
+      </div>
+      <span class="pill" id="spPill">2026-10-14 收盤</span>
+      <button class="linkbtn" id="spReset" hidden>改回最新收盤價</button>
+    </div>
+    <div class="field">
+      <span class="lbl" id="rateLbl">假設年化報酬</span>
+      <div class="chips" id="chips" role="group" aria-labelledby="rateLbl">
+        <button class="chip" data-r="29">台積電過去10年 <b>29%</b></button>
+        <button class="chip" data-r="15">樂觀 <b>15%</b></button>
+        <button class="chip" data-r="10" aria-pressed="true">中性 <b>10%</b></button>
+        <button class="chip" data-r="6">保守 <b>6%</b></button>
+        <span class="custom"><label for="cr">自訂</label><input id="cr" inputmode="decimal" placeholder="—">%</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="receipt" aria-live="polite">
+    <div class="r-head"><strong id="rItem">新耳機</strong><span id="rPrice">NT$ 8,990</span></div>
+    <div class="r-body">
+      <div class="big">
+        <span class="k">現在可以買</span>
+        <span class="v"><span id="shares">3</span><small>股</small></span>
+        <span class="sub" id="sharesSub">約 0.003 張 · 剩 NT$ 1,520</span>
+      </div>
+      <div class="big future">
+        <span class="k" id="fK">10 年後（年化 10%）</span>
+        <span class="v" id="fv">NT$ 23,317</span>
+        <span class="sub" id="fSub">是現在的 2.59 倍，多 NT$ 14,327</span>
+      </div>
+      <svg class="chart" id="chart" viewBox="0 0 520 150" role="img" aria-label="10 年成長曲線"></svg>
+      <p class="verdict" id="verdict">這個「新耳機」，10 年後值 2.6 個。</p>
+      <div class="actions">
+        <button class="btn resist" id="bResist">我忍住了</button>
+        <button class="btn spend" id="bSpend">還是買了</button>
+      </div>
+      <p class="toast" id="toast" role="status"></p>
+    </div>
+  </section>
+
+  <section class="ledger" aria-label="忍住清單">
+    <div class="ledger-head"><h2>忍住清單</h2><span id="ledgerNote">用目前選的年化報酬計算</span></div>
+    <div class="tiles">
+      <div class="tile resist">
+        <div class="t">忍住 <span id="sRN">0 筆</span></div>
+        <div class="kv"><span>省下</span><b id="sRAmt">NT$ 0</b></div>
+        <div class="kv"><span>換成 2330 現值</span><b id="sRNow">NT$ 0</b></div>
+        <div class="kv"><span>10 年後預估</span><b class="hl" id="sRFv">NT$ 0</b></div>
+      </div>
+      <div class="tile spend">
+        <div class="t">花掉 <span id="sSN">0 筆</span></div>
+        <div class="kv"><span>花了</span><b id="sSAmt">NT$ 0</b></div>
+        <div class="kv"><span>放 2330 至今會是</span><b id="sSNow">NT$ 0</b></div>
+        <div class="kv"><span>少掉的 10 年報酬</span><b class="hl" id="sSLost">NT$ 0</b></div>
+      </div>
+    </div>
+    <div class="goal">
+      <div class="goal-head">
+        <span class="t">積沙成塔：退休金目標</span>
+        <div class="small-money goal-in"><span>NT$</span><input id="goal" inputmode="decimal" value="20,000,000" aria-label="退休金目標"></div>
+      </div>
+      <div class="bar" aria-hidden="true"><i id="barNow"></i><i id="barFv"></i></div>
+      <div class="legend"><span><i class="sw now"></i>至今 <b id="gNowPct">0%</b></span><span><i class="sw fv"></i>10 年後 <b id="gFvPct">0%</b></span></div>
+      <div class="kv"><span>忍住的速度</span><b id="gPace">—</b></div>
+      <div class="kv"><span>照這個速度，達標需要</span><b class="hl" id="gYears">—</b></div>
+      <p class="goal-msg" id="gMsg">記下第一筆忍住後，就能算出要多久達標。</p>
+    </div>
+    <div class="list" id="list"><div class="empty">還沒有紀錄。下次想買東西時，算完按「我忍住了」或「還是買了」。</div></div>
+    <div class="backup">
+      <button class="btn" id="bExport">匯出備份</button>
+      <button class="btn" id="bImport">匯入備份</button>
+      <input type="file" id="fileIn" accept="application/json,.json" hidden>
+      <p id="bToast">清單只存在這支手機的瀏覽器裡。換手機或清除瀏覽器資料前，記得先匯出備份。</p>
+    </div>
+  </section>
+
+  <p class="note">股價每個交易日收盤後（約 14:20–16:30）自動更新；還沒收盤前顯示的是前一個交易日的收盤價。台股可用零股交易，1 張 = 1,000 股。「換成 2330 現值」= 金額 ×（最新收盤價 ÷ 記錄當時股價），未含股息。「過去10年 29%」依 2016→2026 股價估算、未含股息，過去績效不代表未來。未計手續費與稅。僅供自我提醒，不是投資建議。</p>
+  <footer>開放原始碼：<a href="https://github.com/nekogugoru/tsmc-impulse" target="_blank" rel="noopener">github.com/nekogugoru/tsmc-impulse</a></footer>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString('zh-TW');
+  const nt = n => 'NT$ ' + fmt(n);
+  const num = v => { const n = parseFloat(String(v).replace(/[^\d.]/g, '')); return isFinite(n) ? n : 0; };
+  const pad = n => String(n).padStart(2, '0');
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+  // ---- 本機儲存（資料只存在這支手機的瀏覽器裡）----
+  const KEY_ENTRIES = 'tsmc_entries_v1', KEY_GOAL = 'tsmc_goal', KEY_QUOTE = 'tsmc_quote_cache';
+  const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+  const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+
+  let rate = 10;
+  let quote = load(KEY_QUOTE, { close: 2490, date: '2026-10-14' });
+  let manual = false;
+  let entries = load(KEY_ENTRIES, []);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  $('date').value = today();
+  const g0 = load(KEY_GOAL, null); if (g0) $('goal').value = g0;
+
+  function sortEntries() { entries.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt)); }
+  function persist() { sortEntries(); if (!save(KEY_ENTRIES, entries)) toast('無法儲存：瀏覽器可能在無痕模式或封鎖了網站資料。'); }
+
+  function chart(p, r) {
+    const W = 520, H = 150, L = 8, R = 8, T = 18, B = 22;
+    const vals = Array.from({ length: 11 }, (_, i) => p * Math.pow(1 + r, i));
+    const max = vals[10] || 1;
+    const x = i => L + (W - L - R) * i / 10;
+    const y = v => T + (H - T - B) * (1 - v / max);
+    const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    let s = '';
+    [0.5, 1].forEach(f => { s += `<line x1="${L}" x2="${W - R}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="var(--line)" stroke-dasharray="3 4"/>`; });
+    s += `<polygon points="${x(0)},${y(0)} ${pts} ${x(10)},${y(0)}" fill="var(--up-soft)"/>`;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(p)}" y2="${y(p)}" stroke="var(--muted)" stroke-width="1"/>`;
+    s += `<polyline points="${pts}" fill="none" stroke="var(--up)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    s += `<circle cx="${x(10)}" cy="${y(max)}" r="4" fill="var(--up)"/>`;
+    [0, 5, 10].forEach(i => { s += `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === 10 ? 'end' : 'middle'}">${i === 0 ? '今天' : '第' + i + '年'}</text>`; });
+    s += `<text x="${L}" y="${Math.max(12, y(p) - 5)}">花掉的 ${nt(p)}</text>`;
+    $('chart').innerHTML = s;
+  }
+
+  const currentSp = () => num($('sp').value);
+
+  function renderQuote() {
+    if (!manual) $('sp').value = quote.close;
+    $('spPill').textContent = manual ? '手動輸入' : `${quote.date} 收盤`;
+    $('spPill').classList.toggle('manual', manual);
+    $('spReset').hidden = !manual;
+  }
+
+  function render() {
+    const p = num($('price').value), sp = currentSp(), r = rate / 100;
+    const item = $('item').value.trim() || '這個東西';
+    const shares = sp > 0 ? Math.floor(p / sp) : 0;
+    const left = p - shares * sp;
+    const fv = p * Math.pow(1 + r, 10);
+    const mult = p > 0 ? fv / p : 0;
+    $('rItem').textContent = item;
+    $('rPrice').textContent = nt(p);
+    $('shares').textContent = sp > 0 ? (p / sp >= 1 ? shares.toLocaleString('zh-TW') : (p / sp).toFixed(3)) : '—';
+    $('sharesSub').textContent = sp <= 0 ? '請輸入股價' :
+      shares >= 1 ? `約 ${(shares / 1000).toFixed(3)} 張 · 剩 ${nt(left)}` :
+      `還買不到 1 股，差 ${nt(sp - p)}（約 ${(p / sp * 100).toFixed(1)}% 股）`;
+    $('fK').textContent = `10 年後（年化 ${rate}%）`;
+    $('fv').textContent = nt(fv);
+    $('fSub').textContent = `是現在的 ${mult.toFixed(2)} 倍，多 ${nt(fv - p)}`;
+    $('verdict').textContent = p > 0 ? `這個「${item}」，10 年後值 ${mult.toFixed(1)} 個。` : '輸入價格看看。';
+    chart(p, r);
+    renderLedger();
+  }
+
+  function renderLedger() {
+    const r = rate / 100, g = Math.pow(1 + r, 10), latest = quote.close;
+    let rN = 0, rAmt = 0, rNow = 0, sN = 0, sAmt = 0, sNow = 0;
+    entries.forEach(e => {
+      const now = e.sharePrice > 0 ? e.amount * latest / e.sharePrice : e.amount;
+      if (e.outcome === 'resist') { rN++; rAmt += e.amount; rNow += now; }
+      else { sN++; sAmt += e.amount; sNow += now; }
+    });
+    $('sRN').textContent = rN + ' 筆'; $('sSN').textContent = sN + ' 筆';
+    $('sRAmt').textContent = nt(rAmt); $('sRNow').textContent = nt(rNow); $('sRFv').textContent = nt(rAmt * g);
+    $('sSAmt').textContent = nt(sAmt); $('sSNow').textContent = nt(sNow); $('sSLost').textContent = '−' + nt(sAmt * g - sAmt);
+    $('ledgerNote').textContent = `用年化 ${rate}% 計算`;
+    renderGoal(rNow, rAmt * g);
+
+    const list = $('list');
+    list.textContent = '';
+    if (!entries.length) {
+      const d = document.createElement('div'); d.className = 'empty';
+      d.textContent = '還沒有紀錄。下次想買東西時，算完按「我忍住了」或「還是買了」。';
+      list.appendChild(d); return;
+    }
+    entries.forEach(e => {
+      const row = document.createElement('div'); row.className = 'entry';
+      const d = document.createElement('div'); d.className = 'd'; d.textContent = e.date.replace(/-/g, '/');
+      const main = document.createElement('div'); main.className = 'main';
+      const name = document.createElement('div'); name.className = 'name';
+      const nm = document.createElement('span'); nm.textContent = e.item || '未命名';
+      const tag = document.createElement('span'); tag.className = 'tag ' + e.outcome; tag.textContent = e.outcome === 'resist' ? '忍住' : '花掉';
+      name.append(nm, tag);
+      const meta = document.createElement('div'); meta.className = 'meta';
+      const sh = e.sharePrice > 0 ? e.amount / e.sharePrice : 0;
+      meta.textContent = `當時 2330 ${fmt(e.sharePrice)} 元 · 可買 ${sh >= 1 ? Math.floor(sh) + ' 股' : sh.toFixed(3) + ' 股'}`;
+      const res = document.createElement('div'); res.className = 'res';
+      const fv = e.amount * g, now = e.sharePrice > 0 ? e.amount * latest / e.sharePrice : e.amount;
+      res.innerHTML = e.outcome === 'resist'
+        ? `10 年後 <b class="up">${nt(fv)}</b> · 至今 <b>${nt(now)}</b>`
+        : `少了 <b class="down">${nt(fv - e.amount)}</b> 的 10 年報酬`;
+      main.append(name, meta, res);
+      const side = document.createElement('div');
+      const amt = document.createElement('div'); amt.className = 'amt'; amt.textContent = nt(e.amount);
+      const del = document.createElement('button'); del.className = 'del'; del.textContent = '刪除';
+      del.setAttribute('aria-label', '刪除 ' + (e.item || '紀錄'));
+      del.addEventListener('click', () => {
+        if (!del.classList.contains('armed')) { del.classList.add('armed'); del.textContent = '確定刪除？'; setTimeout(() => { del.classList.remove('armed'); del.textContent = '刪除'; }, 3000); return; }
+        entries = entries.filter(x => x.id !== e.id); persist(); renderLedger();
+      });
+      side.append(amt, del);
+      row.append(d, main, side);
+      list.appendChild(row);
+    });
+  }
+
+  // 每月忍住金額（從第一筆忍住到今天，至少 1 個月）當作每月投入，用目前年化報酬月複利，求多久到目標
+  function renderGoal(nowVal, fv10) {
+    const goal = num($('goal').value);
+    const pct = v => goal > 0 ? Math.min(100, v / goal * 100) : 0;
+    const pctTxt = v => { const p = goal > 0 ? v / goal * 100 : 0; return p >= 1 ? p.toFixed(1) + '%' : p.toFixed(3) + '%'; };
+    $('barNow').style.width = pct(nowVal) + '%';
+    $('barFv').style.width = pct(fv10) + '%';
+    $('gNowPct').textContent = pctTxt(nowVal);
+    $('gFvPct').textContent = pctTxt(fv10);
+    const res = entries.filter(e => e.outcome === 'resist');
+    if (!res.length || goal <= 0) {
+      $('gPace').textContent = '—'; $('gYears').textContent = '—';
+      $('gMsg').textContent = goal > 0 ? '記下第一筆忍住後，就能算出要多久達標。' : '先輸入目標金額。';
+      return;
+    }
+    const first = res.reduce((m, e) => e.date < m ? e.date : m, res[0].date);
+    const days = (new Date(today()) - new Date(first)) / 864e5;
+    const months = Math.max(1, days / 30.44);
+    const pmt = res.reduce((s, e) => s + e.amount, 0) / months;
+    const i = Math.pow(1 + rate / 100, 1 / 12) - 1;
+    let v = nowVal, n = 0;
+    while (v < goal && n < 1200) { v = v * (1 + i) + pmt; n++; }
+    $('gPace').textContent = `每月約 ${nt(pmt)}`;
+    if (nowVal >= goal) { $('gYears').textContent = '已達標'; $('gMsg').textContent = '已經達到目標了。'; return; }
+    if (n >= 1200) { $('gYears').textContent = '超過 100 年'; }
+    else { const y = Math.floor(n / 12), m = n % 12; $('gYears').textContent = `${y} 年 ${m} 個月`; }
+    const when = new Date(); when.setMonth(when.getMonth() + n);
+    $('gMsg').textContent = n >= 1200
+      ? `照目前每月 ${nt(pmt)} 的速度還太慢。每月多忍住一點，曲線會變陡很多。`
+      : `每月持續忍住 ${nt(pmt)} 並換成 2330，年化 ${rate}% 的話，約在 ${when.getFullYear()} 年 ${when.getMonth() + 1} 月達到 ${nt(goal)}。`;
+  }
+
+  function toast(t) { $('toast').textContent = t; }
+  function btoast(t) { $('bToast').textContent = t; }
+
+  function record(outcome) {
+    const amount = num($('price').value), sp = currentSp();
+    const date = $('date').value || today();
+    if (amount <= 0) { toast('先輸入價格。'); return; }
+    if (sp <= 0) { toast('先輸入 2330 股價。'); return; }
+    entries.push({ id: uid(), date, item: $('item').value.trim() || '未命名', amount, sharePrice: sp,
+      priceDate: manual ? 'manual' : quote.date, outcome, createdAt: new Date().toISOString() });
+    persist(); renderLedger();
+    const fv = amount * Math.pow(1 + rate / 100, 10);
+    toast(outcome === 'resist' ? `已記下：忍住 ${nt(amount)}，10 年後約 ${nt(fv)}。` : `已記下：花掉 ${nt(amount)}，少了約 ${nt(fv - amount)} 的報酬。`);
+  }
+
+  // ---- 備份 ----
+  $('bExport').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ app: 'tsmc-impulse', version: 1, exportedAt: new Date().toISOString(), goal: $('goal').value, entries }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `2330-清單備份-${today()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    btoast(`已匯出 ${entries.length} 筆。`);
+  });
+  $('bImport').addEventListener('click', () => $('fileIn').click());
+  $('fileIn').addEventListener('change', async () => {
+    const f = $('fileIn').files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const list = Array.isArray(data) ? data : data.entries;
+      if (!Array.isArray(list)) throw new Error('格式不對');
+      const have = new Set(entries.map(e => e.id));
+      let added = 0;
+      list.forEach(e => {
+        if (!e || typeof e.amount !== 'number' || !e.date || !/^(resist|spend)$/.test(e.outcome)) return;
+        const id = e.id || uid(); if (have.has(id)) return;
+        entries.push({ id, date: String(e.date).slice(0, 10), item: String(e.item || '未命名').slice(0, 100), amount: e.amount,
+          sharePrice: Number(e.sharePrice) || 0, priceDate: e.priceDate || '', outcome: e.outcome, createdAt: e.createdAt || new Date().toISOString() });
+        have.add(id); added++;
+      });
+      if (data.goal) { $('goal').value = data.goal; save(KEY_GOAL, data.goal); }
+      persist(); renderLedger();
+      btoast(`已匯入 ${added} 筆（重複的已略過）。`);
+    } catch (err) { btoast('匯入失敗：請選擇從這個 App 匯出的備份檔。'); }
+    $('fileIn').value = '';
+  });
+
+  // ---- 事件 ----
+  $('chips').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    rate = num(b.dataset.r); $('cr').value = '';
+    document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === b));
+    render();
+  });
+  $('cr').addEventListener('input', () => {
+    const v = parseFloat($('cr').value);
+    if (isFinite(v)) { rate = v; document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', false)); render(); }
+  });
+  ['price', 'item'].forEach(id => $(id).addEventListener('input', render));
+  $('goal').addEventListener('input', () => { save(KEY_GOAL, $('goal').value); renderLedger(); });
+  $('sp').addEventListener('input', () => { manual = true; renderQuote(); render(); });
+  $('spReset').addEventListener('click', () => { manual = false; renderQuote(); render(); });
+  $('bResist').addEventListener('click', () => record('resist'));
+  $('bSpend').addEventListener('click', () => record('spend'));
+
+  sortEntries();
+  renderQuote();
+  render();
+
+  // ---- 讀取最新收盤價（GitHub Actions 每個交易日收盤後更新 data/2330.json）----
+  fetch('data/2330.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(d => { if (d && d.close > 0) { quote = { close: d.close, date: d.date }; save(KEY_QUOTE, quote); renderQuote(); render(); } })
+    .catch(() => { $('spPill').textContent = `${quote.date} 收盤（離線）`; });
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
